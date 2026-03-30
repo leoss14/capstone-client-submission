@@ -1,4 +1,4 @@
-# Capstone Code Submission - Resource Curse & Economic Complexity
+# Capstone Code Submission: Resource Curse & Economic Complexity
 
 **Project:** Does Natural Resource Dependence Hinder Economic Complexity?
 **Sample:** 54-country panel, 1995–2019
@@ -14,12 +14,12 @@ client_submission/
 ├── main_analysis/
 │   ├── 0_NR_extraction_FINAL.ipynb
 │   ├── 1_cleaning_master_data_FINAL.ipynb
-│   ├── 3_Imputing_FINAL.ipynb
-│   ├── 4_Clustering_FINAL.ipynb
-│   ├── 5_ML_FINAL.ipynb
-│   ├── 6_Regressions_Unified.ipynb
-│   ├── 7_Viz_Descriptive_Clustering.ipynb
-│   ├── 8_Viz_ML.ipynb
+│   ├── 2_Imputing_FINAL.ipynb
+│   ├── 3_Clustering_FINAL.ipynb
+│   ├── 4_ML_FINAL.ipynb
+│   ├── 5_Regressions_Unified.ipynb
+│   ├── 6_Viz_Descriptive_Clustering.ipynb
+│   ├── 7_Viz_ML.ipynb
 │   ├── scripts/
 │   │   ├── standardize_country.py   ← country name harmonisation (used by NB0/NB1)
 │   │   └── viz_utils.py             ← shared Plotly styling helpers
@@ -102,7 +102,7 @@ Downloads and caches economic indicators from six data sources via API, then mer
 
 ---
 
-### NB3 — `3_Imputing_FINAL.ipynb` — Missing Value Imputation
+### NB2 — `2_Imputing_FINAL.ipynb` — Missing Value Imputation
 
 **What it does:**
 Fills gaps in sparse mineral production data using a two-pass strategy, then integrates NR data with the master economic panel.
@@ -127,7 +127,7 @@ Additional steps:
 
 ---
 
-### NB4 — `4_Clustering_FINAL.ipynb` — Country Clustering
+### NB3 — `3_Clustering_FINAL.ipynb` — Country Clustering
 
 **What it does:**
 Classifies 54 resource-rich developing countries into resource profile clusters using dimensionality reduction and K-Means.
@@ -148,7 +148,7 @@ Charts: PCA biplot, loadings heatmap, cluster choropleth, animated Rosling-style
 
 ---
 
-### NB5 — `5_ML_FINAL.ipynb` — Machine Learning Models
+### NB4 — `4_ML_FINAL.ipynb` — Machine Learning Models
 
 **What it does:**
 Trains four supervised models to predict Economic Complexity Index and its annual change from institutional, macroeconomic, and NR production variables.
@@ -172,11 +172,11 @@ Trains four supervised models to predict Economic Complexity Index and its annua
 Test R²: Lasso ~0.75, RF ~0.65. Feature importance: min-max normalised |coefficients| for linear models; MDI for RF.
 
 **Inputs:** `intermediary/Master.csv`, `intermediary/clustersagg.csv`
-**Outputs:** model objects and results in-memory (used directly by NB8)
+**Outputs:** model objects and results in-memory (used directly by NB7)
 
 ---
 
-### NB6 — `6_Regressions_Unified.ipynb` — Econometric Regressions
+### NB5 — `5_Regressions_Unified.ipynb` — Econometric Regressions
 
 **What it does:**
 Estimates six pooled OLS specifications of ECI on institutional and NR production variables, all with country-clustered standard errors.
@@ -196,11 +196,11 @@ Estimates six pooled OLS specifications of ECI on institutional and NR productio
 Also includes: residual diagnostics (QQ plots, Durbin-Watson), HTML regression tables exported for publication, and a robustness re-estimation of Models 3a/3b on the full (non-restricted) sample for comparison.
 
 **Inputs:** `intermediary/Master.csv`, `intermediary/clusters1995.csv`
-**Outputs:** `intermediary/high_resource_countries.csv` (54-country filtered panel with cluster labels, used by NB7–9); coefficient tables, VIF table, HTML regression tables, ECI distribution and trajectory charts printed inline
+**Outputs:** `intermediary/high_resource_countries.csv` (54-country filtered panel with cluster labels, used by NB6–7); coefficient tables, VIF table, HTML regression tables, ECI distribution and trajectory charts printed inline
 
 ---
 
-### NB7 — `7_Viz_Descriptive_Clustering.ipynb` — Descriptive & Clustering Charts
+### NB6 — `6_Viz_Descriptive_Clustering.ipynb` — Descriptive & Clustering Charts
 
 **What it does:**
 Four publication charts for the data and clustering sections.
@@ -215,7 +215,7 @@ Four publication charts for the data and clustering sections.
 
 ---
 
-### NB8 — `8_Viz_ML.ipynb` — ML Charts
+### NB7 — `7_Viz_ML.ipynb` — ML Charts
 
 **What it does:**
 Four charts summarising ML model performance and feature importance.
@@ -225,26 +225,10 @@ Four charts summarising ML model performance and feature importance.
 - **Train/test R² comparison** (`09_ml_performance_comparison.png`): side-by-side bars for train and test R² for all four models, both ECI level and ΔECI targets
 - **Random Forest importance** (`11_ml_random_forest_importance.png`): MDI importance for top features from RF fit
 
-Same train/test split and model specs as NB5 (Year ≤ 2014 / ≥ 2015).
+Same train/test split and model specs as NB4 (Year ≤ 2014 / ≥ 2015).
 
 **Inputs:** `intermediary/Master.csv`, `intermediary/high_resource_countries.csv`, `intermediary/clusters_k5_agg.csv`
 **Outputs:** 4 PNG files to `outputs/charts/ml/`
-
----
-
-### NB9 — `9_Viz_Regression.ipynb` — Regression Charts
-
-**What it does:**
-Four charts from the regression results.
-
-- **Coefficient forest plot** (`16_reg_coefficient_forest.png`): all five model specs (3a–3e) side by side, 95% CI bars, variables grouped by type; reads pre-computed coefficients from `robustness-forest/outputs/regression/coef_model*.csv`
-- **R² comparison** (`17_reg_r2_comparison.png`): bar chart of in-sample R² across Models 1, 3a–3e
-- **HCI × NR interaction** (`18_reg_hci_production_interaction.png`): scatter of log(HCI) vs ECI, country-year observations split into four NR production quartiles, separate OLS trendline per quartile
-- **Rents vs ECI** (`19_reg_rents_eci_relationship.png`): scatter of NR rents (% GDP) vs ECI, points coloured by cluster, single OLS trendline
-
-**Inputs:** `intermediary/Master.csv`, `intermediary/clustersagg.csv`, `robustness-forest/outputs/regression/coef_model*.csv`
-**Outputs:** 4 PNG files to `outputs/charts/regression/`
-
 
 ---
 
@@ -342,8 +326,7 @@ python3.10 chile_analysis/scripts/chile_visualisations.py
 
 ## Notes
 
-- **Sample integrity:** The 54-country sample in `main_analysis/` is fixed. Do not filter it further in the main pipeline; sample sensitivity is handled exclusively in NB10, NB11, NB12.
-- **NB2 is absent by design:** `2_MissingCheck_FINAL.ipynb` is a diagnostic/exploratory notebook, not part of the production pipeline.
+- **Sample integrity:** The 54-country sample in `main_analysis/` is fixed. Do not filter it further in the main pipeline.
 - **Intermediary files:** Notebooks read from CSVs written by earlier steps. If a notebook fails to find an input, run the preceding step first.
 - **Chile pipeline is self-contained:** No shared data with the 54-country analysis; can be run independently.
 - **Outputs:** Interactive charts are `.html`; static charts are `.png` in `outputs/charts/` subdirectories.
