@@ -1,4 +1,4 @@
-# Capstone Code Submission — Resource Curse & Economic Complexity
+# Capstone Code Submission - Resource Curse & Economic Complexity
 
 **Project:** Does Natural Resource Dependence Hinder Economic Complexity?
 **Sample:** 54-country panel, 1995–2019
