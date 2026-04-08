@@ -21,16 +21,15 @@ client_submission/
 │   ├── 6_Viz_Descriptive_Clustering.ipynb
 │   ├── 7_Viz_ML.ipynb
 │   ├── scripts/
-│   │   ├── standardize_country.py   ← country name harmonisation (used by NB0/NB1)
-│   │   └── viz_utils.py             ← shared Plotly styling helpers
+│   │   ├── standardize_country.py   <- country name harmonisation (used by NB0/NB1)
+│   │   └── viz_utils.py             <- shared Plotly styling helpers
 │   ├── rawdata/
 │   │   ├── base_dataset.xlsx
 │   │   ├── Statistical Review of World Energy Narrow File-1.csv
 │   │   ├── Oil Gas Coal Uranium Price.xlsx
 │   │   ├── PopulationWDI.csv
-│   │   ├── production_values_w_prices-EM.csv
 │   │   └── Minerals/
-│   └── intermediary/                ← empty; populated as notebooks run
+│   └── intermediary/                <- empty; populated as notebooks run
 ├── chile_analysis/
 │   ├── Chile_A_Setup_Production.ipynb
 │   ├── Chile_B_Supply_Chain.ipynb
@@ -46,17 +45,17 @@ client_submission/
 │   └── outputs/
 ```
 
-> **Note on NB0 and NB1:** These come from `v2/` (the data extraction/cleaning layer that feeds the v1 analysis). The `v1/` folder starts at NB3 because it assumes a pre-built master dataset. Run NB0 → NB1 first if building from raw sources.
+> **Note:** Run NB0 then NB1 before NB2-NB7. NB0 and NB1 build the master dataset from raw sources; NB2 onwards assume it is already present in `intermediary/`.
 
 ---
 
 ## Environment
 
 - **Python:** 3.10
-- **Core packages:** `pandas`, `numpy`, `scikit-learn`, `xgboost`, `statsmodels`, `plotly`, `geopandas`, `scipy`, `linearmodels`, `wbgapi`
+- **Core packages:** `pandas`, `numpy`, `scikit-learn`, `xgboost`, `statsmodels`, `plotly`, `geopandas`, `scipy`, `linearmodels`, `wbgapi`, `rdata`
 
 ```bash
-pip install pandas numpy scikit-learn xgboost statsmodels plotly geopandas scipy linearmodels wbgapi
+pip install pandas numpy scikit-learn xgboost statsmodels plotly geopandas scipy linearmodels wbgapi rdata
 ```
 
 ---
@@ -70,34 +69,36 @@ Run notebooks in numerical order. Each reads from intermediary outputs of the pr
 ### NB0 - `0_NR_extraction_FINAL.ipynb` - Natural Resource Data Extraction
 
 **What it does:**
-Pulls raw natural resource production, consumption, reserves, and prices from five sources and merges them into a single long-format panel.
+Pulls raw natural resource production, consumption, reserves, and prices from six sources and merges them into a single long-format panel.
 
-- **Oil/gas/coal:** reads `Statistical Review of World Energy Narrow File-1.csv` (variables: `oilprod_kbd`, `gasprod_bcm`, `coalprod_mt`); converts units (oil kbd → bbl/yr ×365,000; gas bcm → MMBtu ×35.315M×1.037; coal Mt → tonnes ×1M)
-- **Minerals:** reads production/reserves tables from `base_dataset.xlsx` (EI P-R sheets: Cobalt, Lithium, Graphite, etc.) and OWID files; USGS price data from `ds140-*.xlsx`
-- **Prices:** loads `Oil Gas Coal Uranium Price.xlsx` and `natural resource prices.xlsx`; applies priority ranking ConsolidatedPrices > EI > OWID > GasPrice (fills gaps only, does not overwrite)
+- **Oil/gas/coal:** reads `Statistical Review of World Energy Narrow File-1.csv` (variables: `oilprod_kbd`, `gasprod_bcm`, `coalprod_mt`); converts units (oil kbd -> bbl/yr x365,000; gas bcm -> MMBtu x35.315M x1.037; coal Mt -> tonnes x1M)
+- **Minerals:** reads production/reserves tables from `base_dataset.xlsx` (EI P-R sheets: Cobalt, Lithium, Graphite, etc.) and OWID files
+- **Prices:** loads `Oil Gas Coal Uranium Price.xlsx` and `workingdata/natural resource prices.xlsx`; applies priority ranking ConsolidatedPrices > EI > OWID > GasPrice (fills gaps only, does not overwrite)
 - Country names standardised to ISO3 via custom `add_iso3()` mapping; decade-range rows skipped via regex; non-resource rows dropped
 
-**Inputs:** `rawdata/Statistical Review of World Energy Narrow File-1.csv`, `rawdata/base_dataset.xlsx`, `rawdata/Minerals/`, `rawdata/Oil Gas Coal Uranium Price.xlsx`
-**Output:** `intermediary/natural_resources_production_values.csv` - long format (Country, Year, Resource, Metric, Value) covering 20+ resources, 1990–2024
+**Inputs:** `rawdata/Statistical Review of World Energy Narrow File-1.csv`, `rawdata/base_dataset.xlsx`, `rawdata/Minerals/`, `rawdata/Oil Gas Coal Uranium Price.xlsx`, `workingdata/natural resource prices.xlsx`
+
+**Output:** `intermediary/natural_resources_production_values.csv` - long format (Country, Year, Resource, Metric, Value) covering 20+ resources, 1990-2024
 
 ---
 
 ### NB1 - `1_cleaning_master_data_FINAL.ipynb` - Master Dataset Construction
 
 **What it does:**
-Downloads and caches economic indicators from six data sources via API, then merges them into a country × year panel.
+Downloads and caches economic indicators from seven data sources, then merges them into a country x year panel.
 
 - **World Bank:** 24 variables (NR rents, GFCF, trade, employment, infrastructure) via `wbgapi`
 - **IMF WEO:** GDP per capita, government revenue, debt, structural balance
 - **IMF ICSD:** 3 GFCF components (P51G: government, private, PPP); primary net lending from FAD_FM dataset
 - **ECI:** Economic Complexity Index from GitHub dataset
-- **V-Dem:** 11 governance indices (polyarchy, corruption, rule of law, etc.)
+- **V-Dem:** 11 governance indices (polyarchy, corruption, rule of law, etc.); downloaded as `vdem.RData` (~100MB) from the V-Dem GitHub repository, parsed with the `rdata` library, then deleted
 - **PWT 11.0:** human capital, TFP, savings shares, depreciation
 - **CEPII:** landlocked indicator
-- All downloads cached to `intermediary/cache/`; `FORCE_REFRESH=True` to re-download. API calls use retry logic (max 3 attempts, 2-second pause).
-- Year filter: 1995–2019; aggregate regions excluded; GFCF components summed across sectors
+- All downloads cached to `intermediary/cache/`; set `FORCE_REFRESH=True` to re-download. API calls use retry logic (max 3 attempts, 2-second pause).
+- Year filter: 1995-2019; aggregate regions excluded; GFCF components summed across sectors
 
-**Inputs:** API calls (World Bank, IMF, V-Dem, PWT, CEPII); local cache on repeat runs
+**Inputs:** API/remote downloads (World Bank, IMF, V-Dem, PWT, CEPII); `intermediary/natural_resources_production_values.csv` (NB0 output) for NR production; local cache on repeat runs
+
 **Outputs:** `intermediary/master_data_long.csv`, `intermediary/master_data_wide.csv`
 
 ---
@@ -109,9 +110,9 @@ Fills gaps in sparse mineral production data using a two-pass strategy, then int
 
 **Pass 1 - share-based backfilling:**
 - For each mineral, finds the earliest year where country coverage exceeds 70% of global production
-- Extracts each country's share in that threshold year; backfills prior years using constant shares × global production
+- Extracts each country's share in that threshold year; backfills prior years using constant shares x global production
 - Sensitivity tested at 60/70/80% thresholds; 70% chosen as baseline
-- Example: Tin reaches 70% coverage in 1997 → 1995–1996 filled using 1997 country shares
+- Example: Tin reaches 70% coverage in 1997 -> 1995-1996 filled using 1997 country shares
 
 **Pass 2 - KNN imputation:**
 - `sklearn.KNeighborsRegressor(n_neighbors=5)` on remaining gaps
@@ -123,6 +124,7 @@ Additional steps:
 - Diagnostic output: `knn_reliance_by_country.csv` records what share of each country's data was imputed
 
 **Inputs:** `intermediary/natural_resources_production_values.csv`, `intermediary/master_data_wide.csv`, `rawdata/PopulationWDI.csv`
+
 **Outputs:** `intermediary/Master.csv`, `intermediary/NaturalResource.csv`, `intermediary/master_data_imputed.csv`, `intermediary/NRCleanData.csv`, `intermediary/knn_reliance_by_country.csv`
 
 ---
@@ -133,108 +135,113 @@ Additional steps:
 Classifies 54 resource-rich developing countries into resource profile clusters using dimensionality reduction and K-Means.
 
 **Pipeline (run three times: 1995 snapshot, 2019 snapshot, aggregated 1995/1999/2005):**
-1. Pivot `NaturalResource.csv` to wide (rows = Country×Year, columns = resources)
-2. Divide all resource columns by population → per-capita production
+1. Pivot `NaturalResource.csv` to wide (rows = Country x Year, columns = resources)
+2. Divide all resource columns by population -> per-capita production
 3. `log1p()` transform on per-capita values to compress outliers
 4. `PCA(n_components=2)` - PC1 loads on oil/gas, PC2 loads on copper/gold/coal
 5. `KMeans(k=5)` - k selected via silhouette score tested over k=2..8 on 1995 data
 
 **Cluster labelling** (reference-country anchoring, not manual relabelling):
-- SAU → Petrostates, NGA → Oil Exporters, RUS → Major Producers, CHL → Mining Exporters, COD → Forestry Intensive
+- SAU -> Petrostates, NGA -> Oil Exporters, RUS -> Major Producers, CHL -> Mining Exporters, COD -> Forestry Intensive
 - Each reference country's cluster ID is looked up and assigned the label; handles missing references gracefully
 
-**Outputs:** `intermediary/clusters_k5_1995.csv`, `intermediary/clusters_k5_agg.csv`, `intermediary/clusters1995.csv`, `intermediary/clusters2019.csv`, `intermediary/clustersagg.csv`
-Charts: PCA biplot, loadings heatmap, cluster choropleth, animated Rosling-style ECI vs log GDP (1995–2019)
+**Inputs:** `intermediary/NaturalResource.csv`, `intermediary/Master.csv`
+
+**Outputs:** `intermediary/clusters1995.csv`, `intermediary/clusters2019.csv`, `intermediary/clustersagg.csv`, `intermediary/clusters_k5_agg.csv` (alias for clustersagg.csv), `intermediary/sample_countries_final.csv`
+
+Charts: PCA biplot, loadings heatmap, cluster choropleth, animated ECI vs log GDP scatter (1995-2019)
 
 ---
 
 ### NB4 - `4_ML_FINAL.ipynb` - Machine Learning Models
 
 **What it does:**
-Trains four supervised models to predict Economic Complexity Index and its annual change from institutional, macroeconomic, and NR production variables.
+Trains four supervised models to predict ECI level and annual change from institutional, macroeconomic, and NR production variables.
 
-**Feature engineering (19 base features → ~30 after transforms):**
+**Feature engineering (19 base features -> ~30 after transforms):**
 - `log1p` applied to: human capital, per-capita production value, GFCF, government revenue, IMF credit, forestry rents
 - 5-year rolling averages (min_periods=3) on inflation and real interest rate
-- Resource HHI: Σ(rents_i / total_rents)² across oil/gas/mineral/forestry rents
-- Interaction terms (mean-centered): HCI × Production Value, GFCF × Production Value
+- Resource HHI: sum(rents_i / total_rents)^2 across oil/gas/mineral/forestry rents
+- Interaction terms (mean-centered): HCI x Production Value, GFCF x Production Value
 - L1_ECI: ECI lagged 1 year within country
 - After all transforms + dropna: 1,100 obs across 51 countries
 
-**Cross-validation:** `PanelTemporalCV` expanding window - train: Year ≤ 2014 (993 obs), test: Year ≥ 2015 (107 obs); 5 folds, min_train_years=8, gap=1 year
+**Cross-validation:** `PanelTemporalCV` expanding window - train: Year <= 2014 (993 obs), test: Year >= 2015 (107 obs); 5 folds, min_train_years=8, gap=1 year
 
 **Models (both ECI level and ΔECI targets):**
-- `LassoCV(max_iter=10000)` - learned α ≈ 0.01–0.03
+- `LassoCV(max_iter=10000)` - learned alpha ~0.01-0.03
 - `RidgeCV(alphas=logspace(-3, 3, 100))`
 - `ElasticNetCV(l1_ratio=0.5, max_iter=10000)`
 - `RandomForestRegressor(n_estimators=200, max_depth=4, min_samples_leaf=10, oob_score=True)`
 
-Test R²: Lasso ~0.75, RF ~0.65. Feature importance: min-max normalised |coefficients| for linear models; MDI for RF.
+Test R2: Lasso ~0.75, RF ~0.65. Feature importance: min-max normalised |coefficients| for linear models; MDI for RF.
 
-**Inputs:** `intermediary/Master.csv`, `intermediary/clustersagg.csv`
-**Outputs:** model objects and results in-memory (used directly by NB7)
+**Inputs:** `intermediary/Master.csv`, `intermediary/clusters1995.csv`
+
+**Outputs:** model objects held in-memory (NB7 must run in the same kernel session); static charts and tables to `main_analysis/Final/NB5/` (OOS R2/RMSE comparisons, prediction intervals, VIF, coefficient comparison, model agreement, RF importance, SHAP, coefficient summary table, country ranking 2020-2030)
 
 ---
 
 ### NB5 - `5_Regressions_Unified.ipynb` - Econometric Regressions
 
 **What it does:**
-Estimates six pooled OLS specifications of ECI on institutional and NR production variables, all with country-clustered standard errors.
+Estimates pooled OLS specifications of ECI on institutional and NR production variables, all with country-clustered standard errors.
 
 **Variable transforms:** `log1p` on HCI, GFCF, per-capita production value; all interaction terms mean-centred on the 54-country sample means; ECI shifted by (min + 1) then log for log-scale AR specs (ECI contains negatives).
 
 **Model specifications:**
-- **Model 1:** Full variable set (~20 vars: GDP pc, savings, agriculture/industry shares, employment, credit, inflation, life expectancy, etc.) - kitchen-sink baseline, clustered SE by country
-- **Model 2:** AR baseline - only ECI_lag1 as predictor; R² ~0.97, establishes how much of ECI is just persistence
-- **Model 3a:** Parsimonious - 7 vars (log_HCI, log_GFCF, political stability, rule of law, log_production_value_pc, trade, forestry rents) + 4 interaction terms (HCI×Production, GFCF×Production, HCI×Forestry, GFCF×Forestry); no ECI lag
+- **Model 1:** Full variable set (~20 vars: GDP pc, savings, agriculture/industry shares, employment, credit, inflation, life expectancy, etc.) - kitchen-sink baseline
+- **Model 2:** AR baseline - only ECI_lag1 as predictor; R2 ~0.97, establishes persistence
+- **Model 3a:** Parsimonious - 7 vars (log_HCI, log_GFCF, political stability, rule of law, log_production_value_pc, trade, forestry rents) + 4 interaction terms (HCI x Production, GFCF x Production, HCI x Forestry, GFCF x Forestry); no ECI lag
 - **Model 3b:** Model 3a + ECI_lag1 (controls for persistence, isolates within-country dynamics)
-- **Model 3c:** Model 3b with all 7 regressors and interactions lagged one period instead of contemporaneous (addresses endogeneity)
+- **Model 3c:** Model 3b with all regressors and interactions lagged one period (addresses endogeneity)
 - **Model 4a/4b:** Model 3b/3c + resource-type dummies (Hydrocarbons_Dominant, Subsoil_Metals_Dominant, Precious_Metals_Dominant) + electricity access
 - **Model 5:** log(ECI) ~ log(ECI)_lag1 - log-scale AR persistence benchmark
-- **Model 6:** ΔECI as dependent variable (first differences) with extended controls - tests whether changes in inputs drive changes in complexity
+- **Model 6:** ΔECI as dependent variable (first differences) with extended controls
 
-Also includes: residual diagnostics (QQ plots, Durbin-Watson), HTML regression tables exported for publication, and a robustness re-estimation of Models 3a/3b on the full (non-restricted) sample for comparison.
+Also includes: residual diagnostics (QQ plots, Durbin-Watson), HTML regression tables, robustness re-estimation of Models 3a/3b on the full sample.
 
 **Inputs:** `intermediary/Master.csv`, `intermediary/clusters1995.csv`
-**Outputs:** `intermediary/high_resource_countries.csv` (54-country filtered panel with cluster labels, used by NB6–7); coefficient tables, VIF table, HTML regression tables, ECI distribution and trajectory charts printed inline
+
+**Outputs:** `intermediary/high_resource_countries.csv` (54-country filtered panel with cluster labels, used by NB6-7); HTML regression tables, VIF table, `residual_qq.png` to `main_analysis/Graphics/NB6/`
 
 ---
 
 ### NB6 - `6_Viz_Descriptive_Clustering.ipynb` - Descriptive & Clustering Charts
 
 **What it does:**
-Four publication charts for the data and clustering sections.
+Publication charts for the data and clustering sections.
 
 - **Sample map** (`chart000_sample_map.png`): choropleth highlighting the 54 countries in the sample
-- **Correlation chart** (`02_correlations_with_eci.png`): horizontal bar plot of Pearson correlations between 31 variables and ECI, grouped into 5 categories (Resource Rents, Macro & Structure, Finance, Human Capital, Governance), sorted by magnitude
+- **Correlation chart** (`02_correlations_with_eci.png`): horizontal bar chart of Pearson correlations between 31 variables and ECI, grouped into 5 categories (Resource Rents, Macro & Structure, Finance, Human Capital, Governance), sorted by magnitude
 - **PCA loadings heatmap** (`26_pca_loadings_heatmap.png`): top 20 resources by loading magnitude; PC1 = oil/gas axis, PC2 = copper/gold/coal axis
-- **PCA biplot** (`03_pca_biplot_1995.png`): 1995 country scatter on PC1–PC2 coloured by cluster, with top 10 resource loading vectors overlaid
+- **PCA biplot** (`03_pca_biplot_1995.png`): 1995 country scatter on PC1-PC2 coloured by cluster, with top 10 resource loading vectors overlaid
 
-**Inputs:** `intermediary/Master.csv`, `intermediary/NaturalResource.csv`, `intermediary/sample_countries_final.csv`, `intermediary/clustersagg.csv`
-**Outputs:** 4 PNG files to `outputs/charts/descriptive/`
+**Inputs:** `intermediary/Master.csv`, `intermediary/NaturalResource.csv`, `intermediary/sample_countries_final.csv`, `intermediary/clusters1995.csv`, `intermediary/clustersagg.csv`
+
+**Outputs:** charts to `main_analysis/Final/charts/descriptive/`
 
 ---
 
 ### NB7 - `7_Viz_ML.ipynb` - ML Charts
 
 **What it does:**
-Four charts summarising ML model performance and feature importance.
+Charts summarising ML model performance and feature importance. Must run in the same kernel session as NB4, or after re-running NB4.
 
-- **Feature importance consensus** (`07_ml_feature_importance_consensus.png`): top 15 features, min-max normalised importance averaged across Lasso/Ridge/Elastic Net; bars coloured by feature category
-- **Standardised coefficients** (`08_ml_standardised_coefficients.png`): grouped bar chart comparing standardised coefficients across the three linear models (inputs StandardScaler-transformed before fitting)
-- **Train/test R² comparison** (`09_ml_performance_comparison.png`): side-by-side bars for train and test R² for all four models, both ECI level and ΔECI targets
-- **Random Forest importance** (`11_ml_random_forest_importance.png`): MDI importance for top features from RF fit
+- **Feature importance consensus:** top 15 features, min-max normalised importance averaged across Lasso/Ridge/Elastic Net; bars coloured by feature category
+- **Standardised coefficients:** grouped bar chart comparing standardised coefficients across the three linear models (inputs StandardScaler-transformed before fitting)
+- **Train/test R2 comparison:** side-by-side bars for train and test R2 across all four models, both ECI level and ΔECI targets
+- **Random Forest importance:** MDI importance for top features from RF
 
-Same train/test split and model specs as NB4 (Year ≤ 2014 / ≥ 2015).
+**Inputs:** `intermediary/Master.csv`, `intermediary/high_resource_countries.csv`, `intermediary/clusters_k5_agg.csv`; model objects from NB4 (in-memory)
 
-**Inputs:** `intermediary/Master.csv`, `intermediary/high_resource_countries.csv`, `intermediary/clusters_k5_agg.csv`
-**Outputs:** 4 PNG files to `outputs/charts/ml/`
+**Outputs:** charts to `main_analysis/Final/charts/ml/`
 
 ---
 
 ## Chile Analysis - Execution Order
 
-Independent pipeline; does not share data with the main 54-country analysis. Run A → B → C.
+Independent pipeline; does not share data with the main 54-country analysis. Run A -> B -> C.
 
 ---
 
@@ -243,57 +250,60 @@ Independent pipeline; does not share data with the main 54-country analysis. Run
 **What it does:**
 Loads the Chilean facilities inventory and COCHILCO production statistics, matches production figures to individual mines, and saves a pickled pipeline state for downstream notebooks.
 
-- Loads `Chile_Minerals_Inventory.csv` (200+ mines, concentrators, smelters, ports) and `Chile_Mine_Plant_Links.csv`; removes links from idle mines; backs up both files to `_backup.csv`
+- Reads `Chile_Minerals_Inventory.csv` and `Chile_Mine_Plant_Links.csv` from `intermediary/` (backed-up copies); removes links from idle mines
 - Tags all Codelco facilities by keyword-matching division names in the inventory
-- **Copper matching:** reads COCHILCO production by company from `COCHILCO_Production_2005_2024.xlsx`; searches inventory for each company name/deposit; assigns production figures to matched mines (coverage ~95% of national total)
-- **Molybdenum matching:** parses Tabla 4.2 from COCHILCO Excel (concentrado vs óxido); applies split allocations from `MO_SPLIT` constants (e.g., "Chuquicamata y Radomiro Tomic" → 40% Chuquicamata / 60% Radomiro Tomic)
+- **Copper matching:** reads COCHILCO production by company from `COCHILCO_Production_2005_2024.xlsx`; searches inventory for each company name/deposit; assigns production figures to matched mines (~95% coverage of national total)
+- **Molybdenum matching:** parses Tabla 4.2 from COCHILCO Excel (concentrado vs oxido); applies split allocations from `MO_SPLIT` constants (e.g., "Chuquicamata y Radomiro Tomic" -> 40% Chuquicamata / 60% Radomiro Tomic)
 - **Lithium rebuild:** reclassifies Salar de Atacama facilities from Potash to Lithium (USGS misclassification); rebuilds lithium links from scratch using distance thresholds (210 km for active mines, 80 km for prospects)
 - Prices sourced from COCHILCO Anuario, implied FOB prices, and USGS benchmarks
 
-**Inputs:** `chile_analysis/inputs/Chile_Minerals_Inventory.csv` (or in-repo equivalent), `COCHILCO_Production_2005_2024.xlsx`, `Anuario-de-Estadisticas-del-Cobre-y-otros-Minerales-2005-2024.xlsx`
-**Outputs:** `intermediary/Chile_Minerals_Inventory.csv` (adds `COCHILCO_CU_2024_KMT`, `COCHILCO_MO_2024_MT`, `OPERATOR_NAME`), `intermediary/Chile_Mine_Plant_Links.csv`, pickled pipeline state
+**Inputs:** `inputs/Chile_Minerals_Inventory.csv`, `inputs/Chile_Mine_Plant_Links.csv`, `inputs/COCHILCO_Production_2005_2024.xlsx`, `inputs/Anuario-de-Estadisticas-del-Cobre-y-otros-Minerales-2005-2024.xlsx`
+
+**Outputs:** `intermediary/Chile_Minerals_Inventory.csv` (adds `COCHILCO_CU_2024_KMT`, `COCHILCO_MO_2024_MT`, `OPERATOR_NAME`), `intermediary/Chile_National_Production_2024.csv`, `_pipeline_state_0.pkl`, `_pipeline_state_2.pkl`
 
 ---
 
 ### Chile B - `Chile_B_Supply_Chain.ipynb` - Supply Chain Construction
 
 **What it does:**
-Builds the full directed supply chain graph (mine → concentrator/SX-EW → smelter → port) from the inventory and link tables.
+Builds the full directed supply chain graph (mine -> concentrator/SX-EW -> smelter -> port) from the inventory and link tables.
 
-**Processing stage classification (vectorized):**
-- Facility types mapped to stages: Mine→extraction, Concentrator→concentration, SX-EW Plant→sx_ew, Smelter→smelting, Refinery→refining
+**Processing stage classification:**
+- Facility types mapped to stages: Mine->extraction, Concentrator->concentration, SX-EW Plant->sx_ew, Smelter->smelting, Refinery->refining
 - Refined by facility name keywords where type is ambiguous
 
 **Product form assignment:**
-- mine_to_plant edges inherit from plant type: SX-EW → cathode_sxew, Smelter → blister, Refinery → cathode_er, Concentrator → concentrate
+- mine_to_plant edges inherit from plant type: SX-EW -> cathode_sxew, Smelter -> blister, Refinery -> cathode_er, Concentrator -> concentrate
 
 **Downstream edge construction (4 categories):**
-1. **Concentrator → Smelter:** named feeds (e.g., Escondida concentrate → Altonorte smelter) + regional feed (within 300 km for custom smelters)
-2. **Smelter → Port:** based on `smelter.export_ports` list in constants
-3. **Concentrator → Port:** checks `DEDICATED_PORT` override first, then nearest port by product type
-4. **SX-EW → Port:** checks `CODELCO_CATHODE_ROUTING` override (e.g., El Teniente cathode → Ventanas port), then `DEDICATED_PORT`, then nearest cathode port
+1. **Concentrator -> Smelter:** named feeds (e.g., Escondida concentrate -> Altonorte smelter) + regional feed (within 300 km for custom smelters)
+2. **Smelter -> Port:** based on `smelter.export_ports` list in constants
+3. **Concentrator -> Port:** checks `DEDICATED_PORT` override first, then nearest port by product type
+4. **SX-EW -> Port:** checks `CODELCO_CATHODE_ROUTING` override (e.g., El Teniente cathode -> Ventanas port), then `DEDICATED_PORT`, then nearest cathode port
 
 Unified edge table columns: `FROM_NAME`, `FROM_TYPE`, `FROM_LAT/LON`, `TO_NAME`, `TO_TYPE`, `TO_LAT/LON`, `EDGE_TYPE`, `PRODUCT_FORM`, `COMMODITIES`, `DISTANCE_KM`
 
-**Inputs:** pickled state from Chile A
-**Outputs:** `intermediary/Chile_Ports.csv`, `intermediary/Chile_Supply_Chain_Edges.csv`, `intermediary/Chile_Export_Destinations.csv`, `intermediary/Chile_Downstream_Links.csv`, `intermediary/Chile_Supply_Chain_Summary.csv`; updated pipeline pickle
+**Inputs:** pickled state from Chile A; `inputs/tablas_de_codigos.xlsx` (Aduanas port codes), `inputs/chile_mineral_trade_combined.csv` (Comtrade export flows), Salidas export manifests (`inputs/Salidas2025.csv` / `Salidas2024.csv` / `Salidas_minerals_only.csv`)
+
+**Outputs:** `intermediary/Chile_Ports.csv`, `intermediary/Chile_Port_Shares_Aduanas.csv`, `intermediary/Comtrade_vs_Salidas_Validation.csv`; updated pipeline pickle
 
 ---
 
 ### Chile C - `Chile_C_Validation_Analysis.ipynb` - Validation & Repair
 
 **What it does:**
-Validates the supply chain graph and patches any construction errors before the data is used for visualisation or analysis.
+Validates the supply chain graph and patches construction errors before the data is used for visualisation or analysis.
 
 - Checks copper production coverage: sums assigned production across matched mines vs COCHILCO national total; flags uncovered production
-- Traces end-to-end paths (mine → concentrator → smelter → port) for each commodity; identifies facilities with no downstream edge
+- Traces end-to-end paths (mine -> concentrator -> smelter -> port) for each commodity; identifies facilities with no downstream edge
 - Consolidates duplicate entities (same facility under different name variants)
 - Patches missing edges where path tracing finds dead ends
-- Compares modelled port assignments against geodesically optimal assignments (haversine distance matrix); generates port distance comparison charts
-- Cross-references against Comtrade trade flow data (`Comtrade_vs_Salidas_Validation.csv`)
+- Compares modelled port assignments against geodesically optimal assignments (haversine distance matrix)
+- Cross-references against Comtrade trade flow data from Chile B
 
-**Inputs:** pickled state from Chile B, `intermediary/Chile_Supply_Chain_Edges.csv`
-**Outputs:** `intermediary/Chile_Network_Metrics.csv`, `intermediary/Mine_Port_Distance_Matrix.csv`, `intermediary/Mine_Optimal_Port_Assignments.csv`, `intermediary/Port_Distance_Comparison.csv`, `intermediary/Comtrade_vs_Salidas_Validation.csv`; port comparison charts in `chile_analysis/outputs/`
+**Inputs:** pickled state from Chile B; `intermediary/Chile_Minerals_Inventory.csv`, `intermediary/Chile_Mine_Plant_Links.csv`, `intermediary/Chile_Port_Shares_Aduanas.csv`
+
+**Outputs:** `intermediary/Chile_Supply_Chain_Edges.csv`, `intermediary/Chile_Export_Destinations.csv`, `intermediary/Chile_Downstream_Links.csv`, `intermediary/Chile_Ports.csv`, `intermediary/Mine_Port_Distance_Matrix.csv`, `intermediary/Mine_Optimal_Port_Assignments.csv`, `intermediary/Port_Distance_Comparison.csv`, `intermediary/Port_Comparison_Chart.png`, `_pipeline_state_6.pkl`
 
 ---
 
@@ -301,8 +311,8 @@ Validates the supply chain graph and patches any construction errors before the 
 
 | Script | What it does |
 |--------|-------------|
-| `chile_supply_chain_map.py` | Interactive Plotly map of the full supply chain graph (nodes = facilities, edges = flows, sized by production volume) → `outputs/chile_supply_chain_map.html` |
-| `chile_visualisations.py` | All other Chile charts: treemap of mineral export value, top facilities bar chart, facility map, export choropleth by region, tile cartogram, sunburst (region × mineral), non-copper value bar |
+| `chile_supply_chain_map.py` | Interactive Plotly map of the supply chain (nodes = facilities, edges = flows, sized by production volume) -> `outputs/chile_supply_chain_map.html` |
+| `chile_visualisations.py` | All other Chile charts: treemap of mineral export value, top facilities bar chart, facility map, export choropleth by region, tile cartogram, sunburst (region x mineral), non-copper value bar |
 | `commodity_prices_2024.py` | Price lookup tables for 2024 USD valuations (Cu, Li, Mo, Fe, Au, Ag, etc.) |
 | `pipeline_constants.py` | Shared constants: file paths, column names, mineral lists, `MO_SPLIT` rules, `CODELCO_CATHODE_ROUTING`, smelter/port metadata |
 | `pipeline_utils.py` | Shared utility functions: distance calculations, inventory search helpers, state load/save |
